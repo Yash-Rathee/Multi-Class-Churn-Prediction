@@ -1,74 +1,249 @@
-# ChurnSense — Phase 1
-### Multi-Class Churn Prediction with Cost-Sensitive Learning
+<h1 align="center">ChurnSense</h1>
+<p align="center">
+  <strong>Multi-Class Temporal Churn Prediction · Risk Trajectories · ROI Optimizer · Live Dashboard</strong>
+</p>
 
----
+<p align="center">
+  <a href="YOUR_STREAMLIT_URL"><img src="https://static.streamlit.io/badges/streamlit_badge_black_white.svg" alt="Open in Streamlit"></a>
+  &nbsp;
+  <img src="https://img.shields.io/badge/Python-3.9+-blue?style=flat-square" alt="Python">
+  &nbsp;
+  <img src="https://img.shields.io/badge/Model-XGBoost-orange?style=flat-square" alt="XGBoost">
+  &nbsp;
+  <img src="https://img.shields.io/badge/Explainability-SHAP-green?style=flat-square" alt="SHAP">
+  &nbsp;
+  <img src="https://img.shields.io/badge/Dashboard-Streamlit-red?style=flat-square" alt="Streamlit">
+</p>
 
-## The problem with standard churn models
-
-Most churn prediction projects answer a binary question: **will this customer leave?**  
-ChurnSense asks a better one: **how urgently will they leave, and what does it cost to get it wrong?**
-
-A customer about to churn this month needs a different response than one who might leave in six months. A model that treats both the same is leaving money on the table.
+<p align="center">
+  Built during <strong>Coding Blocks School of Technology SIP 2026</strong>
+</p>
 
 ---
 
 ## What this project does
 
-| | Standard approach | ChurnSense |
+Most churn projects answer a binary question: **will this customer leave?**
+
+ChurnSense answers the four questions that actually matter to a business:
+
+| Question | Answer |
+|---|---|
+| **Who** is at risk? | 4-class risk tier — Loyal / At-Risk / Critical / Will-Churn |
+| **When** will they churn? | 30 / 60 / 90-day temporal predictions |
+| **How fast** is their risk escalating? | Stable / Improving / Escalating / Rapid Escalation trajectory |
+| **Who do we call first** given a fixed budget? | ROI-ranked intervention list, budget-constrained |
+
+---
+
+## Why this is different from every other churn project
+
+| Capability | Standard approach | ChurnSense |
 |---|---|---|
 | Prediction | Binary Yes / No | 4 risk tiers |
-| Model | Random Forest | XGBoost |
-| Class imbalance | Basic class weights | SMOTE oversampling |
-| Objective | Minimise error rate | Minimise business cost |
-| Explainability | None | SHAP per-customer |
-| Output | Churn probability | Urgency tier + intervention action |
+| Time horizon | Single snapshot | 30 / 60 / 90-day projections |
+| Model objective | Minimise error rate | **Minimise business cost** (cost matrix) |
+| Explainability | None | SHAP per customer |
+| Risk trend | Not tracked | Escalation trajectory per customer |
+| Business output | Churn probability | ROI-ranked contact list |
+| Deployed | Jupyter notebook | **Live Streamlit dashboard** |
 
 ---
 
-## The 4 risk tiers
+## Live results — real numbers from 7,043 customers
 
-| Class | Churn Score | Meaning | Default action |
+### Phase 1 · Multi-class prediction
+
+![Business Snapshot](outputs/plots/01_snapshot.png)
+
+**26.5% overall churn rate — $139k/month in lost revenue.**  
+Senior citizens churn at 41.7% vs 23.6% for non-seniors.
+
+---
+
+### The 4-class innovation
+
+![4-class distribution](outputs/plots/11_class_distribution.png)
+
+The IBM Telco dataset includes a `Churn Score` column (0–100) that most implementations ignore.  
+ChurnSense uses it to define four urgency tiers:
+
+| Class | Score | Customers | Action |
 |---|---|---|---|
-| **Loyal** | 0–25 | Low risk, long-term customer | Loyalty rewards |
-| **At-Risk** | 26–50 | Early warning signs | Re-engagement email |
-| **Critical** | 51–75 | High risk, still reachable | Personal call + offer |
-| **Will-Churn** | 76–100 | Imminent churner | Urgent: immediate high-value offer |
+| **Loyal** | 0–25 | 506 (7.2%) | Loyalty rewards |
+| **At-Risk** | 26–50 | 2,090 (29.7%) | Re-engagement email |
+| **Critical** | 51–75 | 2,696 (38.3%) | Personal call + offer |
+| **Will-Churn** | 76–100 | 1,751 (24.9%) | Urgent: immediate high-value intervention |
+
+**Validation:** actual churn rate increases monotonically across classes — 0% (Loyal) → 20.6% (Critical) → 75% (Will-Churn). The labels are grounded, not arbitrary.
 
 ---
 
-## Business cost matrix
+### Business cost matrix
 
-Standard models optimise for accuracy. ChurnSense optimises for **revenue protection**.
+<p align="center">
+  <img src="outputs/plots/12_cost_matrix.png" width="520" alt="Cost matrix">
+</p>
 
-```
-                  Pred: Loyal   At-Risk   Critical   Will-Churn
-Actual: Loyal         $0         $10        $25          $60
-Actual: At-Risk       $30         $0        $10          $40
-Actual: Critical      $80        $25         $0          $20
-Actual: Will-Churn   $200        $80        $40           $0
-```
-
-These costs are passed as `sample_weight` to XGBoost, so the model learns
-that missing a Will-Churn customer costs $200 — not the same as mislabelling a Loyal one.
+Missing a Will-Churn customer costs $200 in lost revenue. A false alarm on a Loyal customer wastes $60 in outreach budget. These costs become `sample_weight` passed to XGBoost — the model learns to **minimise revenue loss, not prediction error**. No standard implementation does this.
 
 ---
 
-## Setup
+### Model performance
 
-```bash
-# 1. Clone the repo
-git clone https://github.com/<your-username>/ChurnSense.git
-cd ChurnSense
+![Confusion matrix](outputs/plots/13_confusion_matrix.png)
 
-# 2. Install dependencies
-pip install -r requirements.txt
+| Class | Precision | Recall | F1 | Notes |
+|---|---|---|---|---|
+| Loyal | 14.6% | 6.9% | 9.4% | Cost matrix intentionally de-prioritises — false Loyal predictions cost $60 |
+| At-Risk | 37.7% | 23.9% | 29.3% | Hardest class — sits between two adjacent classes |
+| Critical | 46.4% | 43.9% | 45.1% | Largest class, strong performance |
+| **Will-Churn** | **39.1%** | **65.4%** | **48.9%** | **Highest recall — cost matrix working as intended** |
 
-# 3. Place your data file
-# Copy Telco_customer_churn.xlsx into the data/ folder
+**Overall accuracy: 40.7%** (4-class random baseline = 25%).  
+**Only 2.3% of Will-Churn customers are completely missed** — the $200 mistake is rare.  
+**Weighted F1: 0.39 · Macro F1: 0.33**
 
-# 4. Launch the notebook
-jupyter notebook ChurnSense_Phase1.ipynb
+The accuracy number looks low without context. The cost matrix deliberately sacrifices Loyal/At-Risk accuracy to maximise Will-Churn recall — which is the financially correct tradeoff.
+
+---
+
+### What drives predictions
+
+![Feature importance](outputs/plots/14_feature_importance.png)
+
+**Contract type is the single strongest predictor** (importance = 0.083) — month-to-month customers carry 3–4× the churn risk of two-year holders. Tech Support and Internet Service follow. The engineered feature `Charge per Tenure` ranks 8th — capturing price sensitivity that raw charge columns miss.
+
+---
+
+### EDA highlights
+
+<table>
+  <tr>
+    <td><img src="outputs/plots/03_tenure.png" alt="Tenure vs churn"></td>
+    <td><img src="outputs/plots/05_services.png" alt="Services vs churn"></td>
+  </tr>
+  <tr>
+    <td align="center"><em>Customers in months 0–6 churn at 53% — highest risk window in the lifecycle</em></td>
+    <td align="center"><em>No Online Security = 42% churn. Has Online Security = 15% churn. 2.8× gap.</em></td>
+  </tr>
+  <tr>
+    <td><img src="outputs/plots/08_payment.png" alt="Payment method"></td>
+    <td><img src="outputs/plots/09_segments.png" alt="K-Means segments"></td>
+  </tr>
+  <tr>
+    <td align="center"><em>Electronic check users churn at 45.3%. Auto-pay customers: 15–17%. Passive retention lever.</em></td>
+    <td align="center"><em>K-Means (k=3) identifies three behavioural segments — profiled by spend and churn rate</em></td>
+  </tr>
+</table>
+
+---
+
+### Phase 1 business impact
+
+![Phase 1 business impact](outputs/plots/17_business_impact.png)
+
+---
+
+## Phase 2 · Temporal predictions · Trajectories · ROI Optimizer
+
+### Multi-horizon risk predictions
+
+![Temporal distributions](outputs/plots/p2_01_temporal_distributions.png)
+
+Customer features are projected forward in time — tenure accumulates, charges grow — and the model re-predicts at each horizon:
+
+| | 30 Days | 60 Days | 90 Days |
+|---|---|---|---|
+| **Loyal** | 447 | 339 | 320 |
+| **At-Risk** | 1,707 | 1,402 | 1,427 |
+| **Critical** | 2,580 | 2,613 | 2,591 |
+| **Will-Churn** | 2,309 | 2,689 | **2,705** |
+
+**396 additional customers cross the Will-Churn threshold between 30 and 90 days** if no intervention happens.
+
+---
+
+### Risk escalation trajectories
+
+![Trajectory analysis](outputs/plots/p2_02_trajectories.png)
+
+| Trajectory | Count | % | Priority |
+|---|---|---|---|
+| Stable | 5,374 | 76.3% | Normal monitoring |
+| Improving | 529 | 7.5% | Continue engagement |
+| **Escalating** | **730** | **10.4%** | **Intervene this week** |
+| **Rapid Escalation** | **410** | **5.8%** | **Contact within 48 hours** |
+
+**1,140 customers (16.2%) have rising risk** over the 90-day window.
+
+---
+
+### Sankey: risk flow 30-day → 90-day
+
+![Sankey diagram](outputs/plots/p2_03_sankey.png)
+
+The Sankey shows exactly which customers stay in their class and which migrate upward. Most Will-Churn customers at 30 days remain Will-Churn at 90 days — the window to act is narrow.
+
+---
+
+### ROI-optimised intervention
+
+![ROI optimizer](outputs/plots/p2_04_roi_optimizer.png)
+
+Every at-risk customer is scored by expected annual revenue ROI:
 ```
+Expected ROI = Monthly Charges × 12 × churn_probability × save_rate
+```
+
+Sorted descending → top 2,000 contacts fit within a $100k budget at $50/contact.
+
+| Metric | Value |
+|---|---|
+| Budget | $100,000 |
+| Customers contacted | 2,000 |
+| Expected customers saved | 600 |
+| Annual revenue recovered | **$499,163** |
+| Total intervention spend | $100,000 |
+| **Net annual gain** | **$399,163** |
+| **ROI multiple** | **4.99×** |
+
+The Pareto chart (right) shows the profit zone — revenue saved grows faster than spend throughout the budget range.
+
+---
+
+### Budget sensitivity
+
+![Budget sensitivity](outputs/plots/p2_05_budget_sensitivity.png)
+
+ROI is positive and above 2.8× across all tested budget levels ($10k–$300k). The optimal budget is around $150k where the net gain curve begins to flatten.
+
+---
+
+### Phase 2 business impact summary
+
+![Phase 2 summary](outputs/plots/p2_06_phase2_summary.png)
+
+**$327,880/month in revenue sits in the Critical and Will-Churn tiers right now.**  
+With a $100k intervention budget: **4.99× ROI, $399k net annual gain.**
+
+---
+
+## Live dashboard
+
+> **[Open ChurnSense on Streamlit Cloud →](YOUR_STREAMLIT_URL)**
+
+The dashboard has 5 tabs:
+
+| Tab | What it shows |
+|---|---|
+| 📊 Overview | 30-day risk distribution, revenue at risk |
+| ⏱️ Temporal Predictions | 30/60/90-day grouped comparison + delta table |
+| 📈 Risk Trajectories | Trajectory pie, Sankey flow, top escalating customers |
+| 💰 ROI Optimizer | Budget slider → live contact list + downloadable CSV |
+| 🔍 SHAP Analysis | Per-customer SHAP bar chart explaining individual predictions |
+
+Upload any Telco-format CSV → get instant multi-horizon predictions, risk trajectories, and a priority contact list.
 
 ---
 
@@ -76,62 +251,78 @@ jupyter notebook ChurnSense_Phase1.ipynb
 
 ```
 ChurnSense/
-├── ChurnSense_Phase1.ipynb    ← main notebook (37 cells, 11 sections)
+├── app.py                          ← Streamlit dashboard entry point
+├── src/
+│   ├── __init__.py
+│   ├── temporal_features.py        ← feature projection + trajectory classification
+│   ├── roi_optimizer.py            ← budget-constrained intervention optimizer
+│   └── predictor.py                ← shared preprocessing + inference pipeline
+├── ChurnSense_Phase1.ipynb         ← EDA, segmentation, 4-class model, SHAP
+├── ChurnSense_Phase2.ipynb         ← temporal predictions, trajectories, ROI optimizer
 ├── data/
 │   └── Telco_customer_churn.xlsx
 ├── outputs/
-│   ├── model_phase1.pkl       ← saved XGBoost model
-│   └── plots/                 ← all 17 saved charts
+│   ├── model_phase1.pkl
+│   ├── model_h30.pkl
+│   ├── model_h60.pkl
+│   ├── model_h90.pkl
+│   ├── label_encoders.pkl
+│   ├── feature_names.pkl
+│   ├── phase2_predictions.csv
+│   ├── X_features.csv
+│   └── plots/
+├── .streamlit/
+│   └── config.toml
 ├── requirements.txt
 └── README.md
 ```
 
 ---
 
-## Notebook sections
+## Setup — local
 
-1. **Business context** — why 4-class beats binary
-2. **Setup & imports**
-3. **Load & audit** — shape, churn rate, missing values
-4. **EDA** (8 charts) — contract type, tenure, charges, services, CLTV, payment method
-5. **K-Means segmentation** — elbow method, 3 named customer segments
-6. **4-class target engineering** — Loyal / At-Risk / Critical / Will-Churn from Churn Score
-7. **Feature engineering** — charge-per-tenure ratio, revenue share, service count
-8. **Business cost matrix** — sample weights that reflect actual business loss
-9. **XGBoost training** — multi-class, cost-sensitive, SMOTE-balanced
-10. **Evaluation** — per-class F1, confusion matrix, feature importance, SHAP
-11. **Business recommendations** — executive summary, intervention table, ROI estimate
+```bash
+# 1. Clone
+git clone https://github.com/<your-username>/ChurnSense.git
+cd ChurnSense
+
+# 2. Install dependencies
+pip install -r requirements.txt
+
+# 3. Add data
+# Copy Telco_customer_churn.xlsx into data/
+
+# 4. Run Phase 1 (generates model + plots)
+jupyter notebook ChurnSense_Phase1.ipynb
+
+# 5. Run Phase 2 (generates temporal predictions + dashboard artifacts)
+jupyter notebook ChurnSense_Phase2.ipynb
+
+# 6. Launch dashboard
+streamlit run app.py
+```
+
+---
+
+## Deploy on Streamlit Cloud
+
+1. Push this entire repo to GitHub (include the `outputs/` folder — the dashboard reads pkl and CSV files from it)
+2. Go to [share.streamlit.io](https://share.streamlit.io)
+3. Connect your GitHub repo
+4. Set **Main file path** to `app.py`
+5. Deploy — no configuration needed, `requirements.txt` is handled automatically
+
+---
+
+## Tech stack
+
+`pandas` · `numpy` · `scikit-learn` · `xgboost` · `imbalanced-learn` · `shap` · `matplotlib` · `seaborn` · `plotly` · `streamlit`
 
 ---
 
 ## Dataset
 
 IBM Telco Customer Churn — 7,043 customers, 33 columns.  
-Available on [Kaggle](https://www.kaggle.com/datasets/blastchar/telco-customer-churn)
-or in the IBM Cognos Analytics sample dataset library.
+Source: [Kaggle](https://www.kaggle.com/datasets/blastchar/telco-customer-churn) / IBM Cognos Analytics sample datasets.
 
-Key columns used:
-- `Churn Score` (0–100) — basis for the 4-class target label
-- `CLTV` — Customer Lifetime Value
-- `Contract`, `Tenure Months`, `Monthly Charges` — top churn drivers
-- `Churn Label` / `Churn Value` — used only for EDA validation, dropped before training
-
----
-
-## Phase 2 (coming next week)
-
-- **30/60/90-day temporal predictions** — not just *who* churns but *when*
-- **Risk escalation trajectories** — "this customer will go At-Risk → Critical in 60 days"
-- **Budget-constrained ROI optimizer** — given $X, contact these N customers first
-- **Streamlit dashboard** — upload any CSV, get live predictions + SHAP charts
-- **Live deployment link** — Streamlit Cloud
-
----
-
-## Tech stack
-
-`pandas` · `numpy` · `scikit-learn` · `xgboost` · `imbalanced-learn` · `shap` · `matplotlib` · `seaborn`
-
----
-
-*Built as part of Coding Blocks School of Technology SIP 2026*
+Key columns: `Churn Score` (0–100), `CLTV`, `Contract`, `Tenure Months`, `Monthly Charges`
