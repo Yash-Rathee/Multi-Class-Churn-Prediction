@@ -1,0 +1,12 @@
+{
+  "total_customers": 7043,
+  "n_will_churn_30d": 2309,
+  "n_will_churn_90d": 2705,
+  "n_escalating": 1140,
+  "monthly_rev_risk": 327880.0,
+  "annual_rev_saved": 499162.8329999999,
+  "roi_multiple": 4.991628329999999,
+  "budget_used": 100000,
+  "cost_per_contact": 50,
+  "save_rate": 0.3
+}
